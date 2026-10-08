@@ -110,7 +110,7 @@ jobs:
     - name: Push to GitHub as Repository
       run: |
         cd workspace/android/vendor/${{ env.DVN }}/${{ env.DCN }}
-        git init -b ${{ env.DCN }}
+        git init -b ${{ env.DTB }}
         git add .
         git commit -s -m "${{ env.DCN }}: proprietary: initial vendor tree
         Proprietary blobs were extracted from ${{ env.FDR }}"
