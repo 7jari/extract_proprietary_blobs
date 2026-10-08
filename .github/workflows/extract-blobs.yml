@@ -64,9 +64,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Free disk space
-      uses: rokibhasansagar/slimhub_actions@main
-
     - name: Install GitHub CLI
       run: |
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -113,9 +110,8 @@ jobs:
     - name: Push to GitHub as Repository
       run: |
         cd workspace/android/vendor/${{ env.DVN }}/${{ env.DCN }}
-        git init
-        git branch -M ${{ env.DCN }}
+        git init -b ${{ env.DCN }}
         git add .
         git commit -s -m "${{ env.DCN }}: proprietary: initial vendor tree
-        Proprietary blobs were extracted from ${{ env.FDR }}/tree/${{ env.FDB }}"
-        gh repo create ${{ env.TR }} --public --description="Vendor tree for ${{ env.DCN }}." --source=. --remote=origin --push
+        Proprietary blobs were extracted from ${{ env.FDR }}"
+        gh repo create ${{ env.TR }} --public --description="Proprietary vendor tree for ${{ env.DCN }}" --source=. --remote=origin --push
