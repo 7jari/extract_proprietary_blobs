@@ -35,12 +35,16 @@ on:
         description: 'E-mail in Github Account'
         required: true
         default: 'carlodee.official@proton.me'
+      PYTHON:
+        description: 'Use Python extract-utils'
+        type: boolean
+        default: true
 
 jobs:
   build:
     name: Extract Blobs by ${{ github.actor }}
     if: github.event.repository.owner.id == github.event.sender.id
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       GITHUB_TOKEN: ${{ secrets.PAT }}
       FDR: ${{ github.event.inputs.FIRMWARE_DUMP_REPO }}
@@ -52,25 +56,24 @@ jobs:
       UN: ${{ github.event.inputs.USER_NAME }}
       UEM: ${{ github.event.inputs.USER_EMAIL }}
       TR: android_vendor_${{ github.event.inputs.DEVICE_VENDORNAME }}_${{ github.event.inputs.DEVICE_CODENAME }}
+      PY: ${{ github.event.inputs.PYTHON }}
     permissions:
       contents: write
+
     steps:
-    - name: Check Out
+    - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Set Swap Space
-      uses: pierotofy/set-swap-space@master
-      with:
-        swap-size-gb: 12
+    - name: Free disk space
+      uses: rokibhasansagar/slimhub_actions@main
 
-    - name: Prepare GithubCLI
+    - name: Install GitHub CLI
       run: |
-        type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
         curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
         && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
         && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
         && sudo apt update \
-        && sudo apt install gh -y
+        && sudo apt install -y gh
         
     - name: Identity
       run: |
@@ -90,26 +93,29 @@ jobs:
     - name: Clone LineageOS Tools and Utils
       run: |
         cd workspace
-        git clone --depth=1 https://github.com/LineageOS/android_tools_extract-utils -b lineage-20.0 ./android/tools/extract-utils
-        echo "Done cloning extract-utils."
-        git clone --depth=1  https://github.com/LineageOS/android_prebuilts_extract-tools -b lineage-20.0 ./android/prebuilts/extract-tools
-        echo "Done cloning extract-tools."
+        if ${{ env.PY }}; then VER="24.0"; else VER="21.0"; fi
+        git clone --depth=1 https://github.com/LineageOS/android_tools_extract-utils -b lineage-$VER ./android/tools/extract-utils
+        git clone --depth=1 https://github.com/LineageOS/android_prebuilts_extract-tools -b lineage-$VER ./android/prebuilts/extract-tools
 
-    - name: Extracting Files from Dump
+    - name: Extract Files from Dump
       run: |
         cd workspace
-        chmod a+x android/device/${{ env.DVN }}/${{ env.DCN }}/setup-makefiles.sh
         cd android/device/${{ env.DVN }}/${{ env.DCN }}/
+        if ${{ env.PY }}; then
+        ./extract-files.py ${GITHUB_WORKSPACE}/workspace/firmware-dump/
+        else
+        chmod a+x setup-makefiles.sh
         bash extract-files.sh ${GITHUB_WORKSPACE}/workspace/firmware-dump/
+        fi
         echo "Done extracting and making files."
         echo "Pushing as repository now."
         
-    - name: Push to Github as Repository
+    - name: Push to GitHub as Repository
       run: |
         cd workspace/android/vendor/${{ env.DVN }}/${{ env.DCN }}
         git init
-        git branch -M main-${{ env.DCN }}
+        git branch -M ${{ env.DCN }}
         git add .
         git commit -s -m "${{ env.DCN }}: proprietary: initial vendor tree
-        Proprietary were extracted from ${{ env.FDR }}/tree/${{ env.FDB }}"
+        Proprietary blobs were extracted from ${{ env.FDR }}/tree/${{ env.FDB }}"
         gh repo create ${{ env.TR }} --public --description="Vendor tree for ${{ env.DCN }}." --source=. --remote=origin --push
